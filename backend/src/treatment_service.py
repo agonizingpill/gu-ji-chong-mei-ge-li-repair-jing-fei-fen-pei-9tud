@@ -1,10 +1,10 @@
 from sqlalchemy import select
 from .models import Accession,Treatment,Step,Isolation,Encumbrance,Grant
 from .common import get,reject,finish,lock_treatment
-from .catalog_service import reviewed_risk
+from .risk_service import reviewed_group
 def propose(db,data,user):
     folio=get(db,Accession,data.accession_id,True)
-    reject(not reviewed_risk(db,folio.id),'最新病害风险尚未经主管复核')
+    reject(not reviewed_group(db,folio.id),'最新一组复测尚未经主管复核')
     reject(not db.scalar(select(Isolation).where(Isolation.accession_id==folio.id,Isolation.active==True)),'卷册未在隔离柜')
     reject(db.scalar(select(Treatment).where(Treatment.accession_id==folio.id,Treatment.status.in_(['draft','funded']))) is not None,'该卷册已有执行中方案')
     reject(any(len(n.strip())<2 or len(n)>80 for n in data.steps),'工序名称需2至80字')
@@ -23,6 +23,7 @@ def revise(db,id,data,user):
 def complete_step(db,id,data,user):
     step=get(db,Step,id);plan=lock_treatment(db,step.treatment_id);step=get(db,Step,id,True)
     reject(plan.status!='funded','预算未占用，不得施工')
+    reject(not reviewed_group(db,plan.accession_id),'最新一组复测尚未复核通过，暂缓签证')
     reject(step.done,'该工序已签证')
     reject(step.depends_on is not None and not get(db,Step,step.depends_on).done,'前置工序尚未签证')
     step.done=True;step.evidence=data.evidence

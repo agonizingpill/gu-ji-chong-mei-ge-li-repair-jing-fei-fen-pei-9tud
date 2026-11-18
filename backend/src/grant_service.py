@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from .models import Grant,Encumbrance,Treatment,Step,Accession,Isolation
 from .common import get,reject,finish,lock_treatment
-from .catalog_service import reviewed_risk
+from .risk_service import reviewed_group
 def create_grant(db,data,user):
     reject(db.scalar(select(Grant).where(Grant.code==data.code)) is not None,'经费编号重复')
     row=Grant(**data.model_dump());db.add(row);db.flush();return finish(db,user,'设立专项经费',row)
@@ -10,7 +10,7 @@ def fund(db,id,data,user):
     folio=get(db,Accession,plan.accession_id,True)
     grant=get(db,Grant,data.grant_id,True)
     reject(plan.status!='draft','仅草案可占用经费')
-    reject(not reviewed_risk(db,folio.id),'最新病害分级未复核，不能开工')
+    reject(not reviewed_group(db,folio.id),'最新一组复测未复核，不能开工')
     reject(not db.scalar(select(Isolation).where(Isolation.accession_id==folio.id,Isolation.active==True)),'卷册未在柜')
     reject(grant.budget_cents-grant.spent_cents-grant.reserved_cents<plan.estimated_cents,'专项余额不足；修订估价或改选专项后重试')
     grant.reserved_cents+=plan.estimated_cents;plan.status='funded';folio.status='repair'

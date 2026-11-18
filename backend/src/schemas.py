@@ -23,7 +23,7 @@ class RiskInput(BaseModel):
     accession_id:int
 class ReviewInput(BaseModel):
     level:str=Field(pattern='^(low|medium|high)$')
-    note:str=Field(min_length=2,max_length=200)
+    note:str=Field(default='',max_length=200)
 class TreatmentInput(BaseModel):
     accession_id:int
     name:str=Field(min_length=2,max_length=100)

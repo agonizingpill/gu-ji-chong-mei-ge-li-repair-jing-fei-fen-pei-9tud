@@ -15,7 +15,7 @@ def login(data:Login,db=Depends(session)):
     return {'token':issue(user),'username':user.username,'role':user.role}
 @router.get('/workspace')
 def workspace(db=Depends(session),user=Depends(current)):
-    models=[Accession,Observation,Cabinet,Isolation,RiskAssessment,Treatment,Step,Grant,Encumbrance,Handover]
+    models=[Accession,Observation,Cabinet,Isolation,RiskGroup,RiskAssessment,Treatment,Step,Grant,Encumbrance,Handover]
     return {m.__tablename__:[dump(v) for v in db.scalars(select(m).order_by(m.id))] for m in models}
 @router.get('/audit')
 def audits(db=Depends(session),user=Depends(supervisor)):return [dump(v) for v in db.scalars(select(Audit).order_by(Audit.id.desc()).limit(100))]

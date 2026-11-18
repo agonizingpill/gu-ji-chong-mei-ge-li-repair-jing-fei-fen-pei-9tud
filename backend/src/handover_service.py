@@ -1,13 +1,14 @@
 from sqlalchemy import select
 from .models import Accession,Isolation,Cabinet,Treatment,Step,Handover,now
 from .common import get,reject,finish
-from .catalog_service import latest_observation,reviewed_risk
+from .catalog_service import latest_observation
+from .risk_service import reviewed_group
 def handover(db,data,user):
     folio=get(db,Accession,data.accession_id,True)
     obs=latest_observation(db,folio.id)
     reject(not obs or obs.mold>0 or obs.humidity>60,'霉斑未清除或含水率过高，复测合格后再交接')
-    risk=reviewed_risk(db,folio.id)
-    reject(not risk or risk.approved!='low','最新病害需经主管复核为低风险')
+    group=reviewed_group(db,folio.id)
+    reject(not group or group.approved!='low','最新一组复测需经主管裁决为低风险')
     reject(db.scalar(select(Treatment).where(Treatment.accession_id==folio.id,Treatment.status.in_(['draft','funded']))) is not None,'修复工序或经费核销未完成')
     reject(not db.scalar(select(Treatment).where(Treatment.accession_id==folio.id,Treatment.status=='completed')),'尚无完成核销的修复方案')
     isolation=db.scalar(select(Isolation).where(Isolation.accession_id==folio.id,Isolation.active==True))

@@ -42,17 +42,26 @@ class Isolation(Base):
     active:Mapped[bool]=mapped_column(Boolean,default=True)
     entered:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
     exited:Mapped[datetime|None]=mapped_column(DateTime(timezone=True),nullable=True)
-class RiskAssessment(Base):
-    __tablename__='risk_assessments'
+class RiskGroup(Base):
+    __tablename__='risk_groups'
+    __table_args__=(UniqueConstraint('accession_id','obs_key'),)
     id:Mapped[int]=mapped_column(primary_key=True)
     accession_id:Mapped[int]=mapped_column(ForeignKey('accessions.id'))
-    observation_id:Mapped[int]=mapped_column(ForeignKey('observations.id'))
+    obs_key:Mapped[str]=mapped_column(String(40))
     status:Mapped[str]=mapped_column(String(20),default='queued')
-    predicted:Mapped[str|None]=mapped_column(String(20),nullable=True)
     approved:Mapped[str|None]=mapped_column(String(20),nullable=True)
     review_note:Mapped[str]=mapped_column(String(200),default='')
-    metrics:Mapped[dict]=mapped_column(JSON,default=dict)
     error:Mapped[str]=mapped_column(String(200),default='')
+    at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+class RiskAssessment(Base):
+    __tablename__='risk_assessments'
+    __table_args__=(UniqueConstraint('group_id','observation_id'),)
+    id:Mapped[int]=mapped_column(primary_key=True)
+    group_id:Mapped[int]=mapped_column(ForeignKey('risk_groups.id'))
+    accession_id:Mapped[int]=mapped_column(ForeignKey('accessions.id'))
+    observation_id:Mapped[int]=mapped_column(ForeignKey('observations.id'))
+    predicted:Mapped[str|None]=mapped_column(String(20),nullable=True)
+    metrics:Mapped[dict]=mapped_column(JSON,default=dict)
 class Treatment(Base):
     __tablename__='treatments'
     __table_args__=(CheckConstraint('estimated_cents > 0'),)

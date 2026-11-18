@@ -1,8 +1,8 @@
-import time,logging
+import time,logging,json
 from pathlib import Path
 from sqlalchemy import select
 from .database import Session
-from .models import RiskAssessment,Observation
+from .models import RiskGroup,RiskAssessment,Observation
 from .risk_service import queue
 from .algorithm import classify
 logging.basicConfig(level=logging.INFO)
@@ -12,14 +12,17 @@ while True:
         item=queue.blpop('folio:risk',timeout=2)
         if not item:continue
         with Session() as db:
-            row=db.get(RiskAssessment,int(item[1]))
-            if not row or row.status!='queued':continue
-            row.status='running';db.commit()
+            group=db.get(RiskGroup,int(item[1]))
+            if not group or group.status!='queued':continue
+            group.status='running';db.commit()
             try:
-                obs=db.get(Observation,row.observation_id)
-                row.predicted,row.metrics=classify(obs.humidity,obs.holes,obs.mold);row.status='done';row.error=''
+                members=db.scalars(select(RiskAssessment).where(RiskAssessment.group_id==group.id).order_by(RiskAssessment.observation_id)).all()
+                for member in members:
+                    obs=db.get(Observation,member.observation_id)
+                    member.predicted,member.metrics=classify(obs.humidity,obs.holes,obs.mold)
+                group.status='done';group.error=''
                 Path('/artifacts').mkdir(exist_ok=True)
-                Path(f'/artifacts/risk-{row.id}.json').write_text(__import__('json').dumps(row.metrics,ensure_ascii=False))
-            except Exception as exc:row.status='failed';row.error=str(exc)[:200]
+                Path(f'/artifacts/risk-{group.id}.json').write_text(json.dumps({'group_id':group.id,'obs_key':group.obs_key,'predictions':{str(m.observation_id):m.predicted for m in members},'metrics':members[-1].metrics},ensure_ascii=False))
+            except Exception as exc:group.status='failed';group.error=str(exc)[:200]
             db.commit()
     except Exception:logging.exception('worker iteration');time.sleep(1)

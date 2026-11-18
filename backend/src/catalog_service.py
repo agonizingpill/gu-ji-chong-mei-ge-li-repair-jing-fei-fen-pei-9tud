@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from .models import Accession,Observation,RiskAssessment
+from .models import Accession,Observation
 from .common import get,reject,finish
 def register(db,data,user):
     reject(db.scalar(select(Accession).where(Accession.code==data.code)) is not None,'馆藏号已登记')
@@ -10,6 +10,5 @@ def observe(db,data,user):
     row=Observation(**data.model_dump());db.add(row);db.flush();return finish(db,user,'病害复测',row)
 def latest_observation(db,accession_id):
     return db.scalar(select(Observation).where(Observation.accession_id==accession_id).order_by(Observation.id.desc()).limit(1))
-def reviewed_risk(db,accession_id):
-    obs=latest_observation(db,accession_id)
-    return db.scalar(select(RiskAssessment).where(RiskAssessment.observation_id==obs.id,RiskAssessment.status=='reviewed').order_by(RiskAssessment.id.desc())) if obs else None
+def recent_observations(db,accession_id,limit=2):
+    return db.scalars(select(Observation).where(Observation.accession_id==accession_id).order_by(Observation.id.desc()).limit(limit)).all()
